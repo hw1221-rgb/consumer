@@ -1,0 +1,70 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>스마슈머의 방탈출 게임</title>
+  <style>
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      min-height: 100vh;
+      min-height: 100svh;
+      display: grid;
+      place-items: center;
+      padding: 20px;
+      color: #effff7;
+      background: radial-gradient(ellipse at 50% 25%, #174439, #091512 72%);
+      font-family: system-ui, "Malgun Gothic", sans-serif;
+    }
+    main {
+      width: min(100%, 640px);
+      padding: clamp(32px, 8vw, 76px) 20px;
+      text-align: center;
+      background: #10251f;
+      border: 1px solid #497064;
+      border-radius: 24px;
+      box-shadow: 0 24px 70px #0006;
+    }
+    h1 {
+      margin: 0;
+      font-size: clamp(1.9rem, 7vw, 3.65rem);
+      line-height: 1.15;
+      letter-spacing: -.055em;
+    }
+    h1 span { display: block; color: #9df5b9; }
+    p {
+      margin: 20px 0 32px;
+      color: #c5ded4;
+      line-height: 1.6;
+      word-break: keep-all;
+    }
+    button {
+      width: min(100%, 240px);
+      min-height: 52px;
+      padding: 12px 24px;
+      border: 0;
+      border-radius: 12px;
+      background: #9df5b9;
+      color: #10251f;
+      font: inherit;
+      font-weight: 800;
+      cursor: pointer;
+    }
+    button:hover { background: #c2ffd4; }
+    button:focus-visible { outline: 3px solid white; outline-offset: 5px; }
+  </style>
+</head>
+<body>
+  <main>
+    <h1>스마슈머의 <span>방탈출 게임</span></h1>
+    <p>현명한 소비 선택으로 단서를 모아 방을 탈출하세요.</p>
+    <button id="start" type="button">시작</button>
+  </main>
+  <script>
+    document.getElementById('start').addEventListener('click', () => {
+      window.alert('준비 중');
+    });
+  </script>
+</body>
+</html>
