@@ -345,6 +345,27 @@
       #game #feedback, #game #unlock, #game #next { grid-column: 1 / -1; }
       #game #next { justify-self: center; }
     }
+    .teacher-card, .teacher-card:hover {
+      display: grid; gap: 7px; width: min(100%, 360px); margin: 18px auto 0;
+      padding: 12px; border: 2px solid #c5a5e4; background: #f8efff; color: #432069;
+    }
+    .teacher-card:hover { background: #eee0fb; border-color: #8957b8; }
+    .teacher-map {
+      position: relative; isolation: isolate; display: flex; align-items: center;
+      justify-content: space-evenly; gap: 4px; min-height: 70px; padding: 6px;
+      border-radius: 10px; background: linear-gradient(135deg, #d8f5df, #fff2b9);
+    }
+    .teacher-map::before {
+      content: ''; position: absolute; z-index: -1; inset-inline: 12%; top: 50%;
+      border-top: 3px dashed #518c62;
+    }
+    .teacher-map > span {
+      display: grid; place-items: center; width: 42px; height: 42px;
+      border: 1px solid #98c4a5; border-radius: 50%; background: #fffaf0;
+      font-size: 1.35rem;
+    }
+    .teacher-card-title { font-size: 1.05rem; }
+    .teacher-card-description { font-size: .85rem; font-weight: 500; }
   </style>
 </head>
 <body>
@@ -389,15 +410,21 @@
         </fieldset>
         <button type="submit">시작</button>
       </form>
+      <button id="teacher-board" type="button" class="teacher-card">
+        <span class="teacher-map" aria-hidden="true">
+          <span>🕵️</span><span>🦊</span><span>🐰</span><span>🚪</span>
+        </span>
+        <span class="teacher-card-title">교사용 현황판 <span aria-hidden="true">→</span></span>
+        <span class="teacher-card-description">학생 캐릭터와 진행 단계 보기</span>
+      </button>
       <div class="home-actions">
         <button id="show-answer-login" type="button">교사용 정답</button>
-        <button id="teacher-board" type="button">교사용 현황판</button>
         <button id="show-qr" type="button">학생 입장 QR</button>
         <button id="show-records" type="button">전체 순위·접속자</button>
       </div>
       <dialog id="entry-qr" aria-labelledby="qr-title">
         <h2 id="qr-title">학생 입장 QR</h2>
-        <p>휴대폰 카메라로 QR을 찍으면 게임 시작 화면이 열려요.</p>
+        <p> 카메라로 QR을 찍으면 게임 시작 화면이 열려요.</p>
         <canvas id="qr-image" role="img" aria-label="스마슈머 게임 입장 QR 코드"></canvas>
         <p><a id="game-link" href="https://hw1221-rgb.github.io/consumer/">게임 주소 열기</a></p>
         <form method="dialog"><button autofocus>닫기</button></form>
@@ -994,6 +1021,7 @@
         id: game.session, sequence: ++game.sequence, name: game.player,
         avatar: avatarLabels[game.avatar] || avatarLabels.detective,
         status, solved: game.solved.size, row: question?.position || Math.min(game.solved.size + 1, 3),
+        slot: game.keys.findIndex(item => item.id === game.active) + 1,
         step: question?.step || 0, title: question?.name || '', exit: status === '탈출 완료' ? game.active : 0
       };
       fetch(progressEndpoint, {
