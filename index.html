@@ -310,6 +310,13 @@
     #answer-questions li + li { margin-top: 10px; }
     #answer-questions p { margin: 4px 0 0; color: #4e2379; }
     #answer-error { color: #992c42; }
+    #online-summary { margin: 8px 0; font-weight: 800; }
+    #online-names { display: flex; flex-wrap: wrap; justify-content: center; list-style: none;
+                    gap: 6px; padding: 0; margin: 0 0 12px; }
+    #online-names li { background: #f3e7ff; padding: 4px 9px; border-radius: 12px; overflow-wrap: anywhere; }
+    #notice-example { margin-top: 18px; padding: 12px; background: white; border: 1px solid #dfcaee; border-radius: 10px; }
+    #notice-example summary { cursor: pointer; font-weight: 800; color: #4e2379; }
+    #notice-example-text { margin-top: 12px; line-height: 1.65; white-space: pre-line; overflow-wrap: anywhere; }
   </style>
 </head>
 <body>
@@ -358,7 +365,7 @@
         <button id="show-answer-login" type="button">교사용 정답</button>
         <button id="teacher-board" type="button">교사용 현황판</button>
         <button id="show-qr" type="button">학생 입장 QR</button>
-        <button id="show-records" type="button">순위 보기</button>
+        <button id="show-records" type="button">전체 순위·접속자</button>
       </div>
       <dialog id="entry-qr" aria-labelledby="qr-title">
         <h2 id="qr-title">학생 입장 QR</h2>
@@ -388,6 +395,10 @@
         <h3 id="answer-case-title"></h3>
         <p id="answer-case-story"></p>
         <ol id="answer-questions"></ol>
+        <details id="notice-example">
+          <summary>내용증명 작성 예시 보기</summary>
+          <div id="notice-example-text"></div>
+        </details>
       </article>
       <button class="answer-back" type="button">첫 화면</button>
     </section>
@@ -441,6 +452,9 @@
     </section>
 
     <section id="results" hidden>
+      <p id="online-summary" role="status"></p>
+      <ul id="online-names" aria-label="현재 접속자 닉네임"></ul>
+      <p id="ranking-scope"></p>
       <h2 id="result-title" tabindex="-1">탈출 순위</h2>
       <p id="result-summary" hidden></p>
       <p id="storage-status" role="status" hidden></p>
@@ -940,9 +954,15 @@
     const progressEndpoint = '';
     const avatarLabels = { detective: '탐정', fox: '여우', rabbit: '토끼', robot: '로봇' };
 
+    let presenceTimer;
+    let rankingTimer;
+    let rankingView = 0;
+
     function reportProgress(status, question = null) {
       if (!progressEndpoint || !game) return;
+      game.lastProgress = { status, question };
       const payload = {
+        correct: game.result?.correct, elapsed: game.result?.elapsed,
         id: game.session, sequence: ++game.sequence, name: game.player,
         avatar: avatarLabels[game.avatar] || avatarLabels.detective,
         status, solved: game.solved.size, row: question?.position || Math.min(game.solved.size + 1, 3),
@@ -963,12 +983,16 @@
       window.open(progressEndpoint, '_blank', 'noopener,noreferrer');
     });
 
+    const noticeExamples = {"1": "사례 1. 작동하지 않는 블루투스 이어폰 환불 요구\n제목: 소비자 피해에 따른 환불 요구\n\n받는 사람: 청계테크 판매업체\n\n주소: ______________________________________________\n\n보내는 사람: __________________________________________\n\n주소 / 전화: ___________________________________________\n\n\n1. 거래 내용\n\n본인은 귀 업체의 인터넷 쇼핑몰에서 청계테크 블루투스 무선 이어폰을 20% 할인된 가격으로 구입하였습니다.\n\n2. 문제 발생 내용\n\n제품을 배송받은 후 설명서에 따라 작동시켰으나 이어폰이 정상적으로 작동하지 않았습니다. 이에 5일 동안 총 5회에\n걸쳐 업체에 문의하였지만 아무런 답변을 받지 못했습니다.\n\n3. 소비자 권리 침해 내용\n\n작동하지 않는 제품을 판매하고 제품에 대한 정확한 정보를 제공하지 않아 소비자의 알 권리와 정당한 피해 구제를 받을\n권리가 침해되었습니다.\n\n4. 요청 사항\n\n정상적으로 사용할 수 없는 제품이므로 제품 구입 대금을 전액 환불해 주시기 바랍니다. 또한 소비자 문의에 성실하게\n답변해 주시기 바랍니다.\n\n\n\n위 내용에 대해 확인하신 후 성실한 답변과 조치를 요청합니다.\n\n20____년 ____월 ____일 보내는 사람: __________________ (서명)", "2": "사례 2. 유해물질이 검출된 촉감 완구 환불 요구\n제목: 소비자 피해에 따른 안전성 확인 및 환불 요구\n\n받는 사람: 청계 마켓 쇼핑몰\n\n주소: ______________________________________________\n\n보내는 사람: __________________________________________\n\n주소 / 전화: ___________________________________________\n\n\n1. 거래 내용\n\n본인은 귀 업체의 쇼핑몰에서 자녀가 사용할 말랑이와 왁뿌볼 등 촉감 완구를 구입하였습니다.\n\n2. 문제 발생 내용\n\n이후 소비자 안전 조사에서 일부 촉감 완구에 기준치를 초과하는 유해물질이 검출되었다는 사실을 알게 되었습니다.\n자녀가 해당 제품을 사용하였기 때문에 건강에 문제가 생기지는 않았을지 걱정됩니다. 제조업체와 판매업체에\n문의하였으나 정확한 안내를 받지 못했습니다.\n\n3. 소비자 권리 침해 내용\n\n유해물질로부터 신체와 건강을 보호받아야 하는 소비자의 안전할 권리가 침해될 우려가 있습니다.\n\n4. 요청 사항\n\n구입한 제품의 유해물질 검출 여부와 안전성에 대해 정확하게 안내해 주시고, 안전성이 확인되지 않을 경우 제품을\n회수하고 구입 대금을 전액 환불해 주시기 바랍니다.\n\n\n\n위 내용에 대해 확인하신 후 성실한 답변과 조치를 요청합니다.\n\n20____년 ____월 ____일 보내는 사람: __________________ (서명)", "3": "사례 3. 항공권 취소 수수료에 대한 환불 요구\n제목: 소비자 피해에 따른 취소 수수료 확인 및 환불 요구\n\n받는 사람: 청계 여행 예약 사이트\n\n주소: ______________________________________________\n\n보내는 사람: __________________________________________\n\n주소 / 전화: ___________________________________________\n\n\n1. 거래 내용\n\n본인은 귀 업체의 여행 예약 사이트에서 4인 가족의 해외 왕복 항공권을 총 120만 원에 구입하였습니다.\n\n2. 문제 발생 내용\n\n결제 후 약 30분 만에 여행 날짜를 잘못 선택한 사실을 알고 취소를 요청하였습니다. 그러나 업체에서는 40만 원의\n취소 수수료를 제외하고 80만 원만 환불해 주겠다고 안내하였습니다. 결제 전에 취소 수수료에 대한 충분한 설명을\n듣지 못했습니다.\n\n3. 소비자 권리 침해 내용\n\n구매 전에 취소 수수료와 환불 조건에 관한 정확한 정보를 제공받지 못하여 소비자의 알 권리가 침해되었습니다.\n\n4. 요청 사항\n\n결제 당시 안내되지 않은 취소 수수료 40만 원의 부과 근거를 명확하게 설명해 주시기 바랍니다. 또한 취소 수수료의\n적정성을 재검토하고 정당한 환불 조치를 해주시기 바랍니다.\n\n\n\n위 내용에 대해 확인하신 후 성실한 답변과 조치를 요청합니다.\n\n20____년 ____월 ____일 보내는 사람: __________________ (서명)", "4": "사례 4. 무료라고 안내한 휴대전화의 할부금 청구 문제\n제목: 소비자 피해에 따른 계약 취소 및 피해 보상 요구\n\n받는 사람: 청계 휴대전화 대리점\n\n주소: ______________________________________________\n\n보내는 사람: __________________________________________\n\n주소 / 전화: ___________________________________________\n\n\n1. 거래 내용\n\n본인은 귀 업체에서 최신 휴대전화를 무료로 제공한다는 판매 직원의 설명을 듣고 휴대전화 개통 계약을\n체결하였습니다.\n\n2. 문제 발생 내용\n\n개통 한 달 후 요금 명세서를 확인해 보니 매달 휴대전화 단말기 할부금이 청구되고 있었습니다. 판매 직원은\n휴대전화가 무료라고 안내했지만 실제 계약에는 단말기 할부금이 포함되어 있었습니다.\n\n3. 소비자 권리 침해 내용\n\n휴대전화 구입에 필요한 실제 비용과 계약 조건을 정확하게 안내받지 못하여 소비자의 알 권리가 침해되었습니다.\n\n4. 요청 사항\n\n무료라고 안내한 내용과 다른 계약을 체결하게 된 것에 대해 책임 있는 설명을 요구합니다. 아울러 부당하게 체결된\n계약을 취소하고 이미 청구된 단말기 할부금에 대해 환불 또는 적절한 피해 보상을 해주시기 바랍니다.\n\n\n\n위 내용에 대해 확인하신 후 성실한 답변과 조치를 요청합니다.\n\n20____년 ____월 ____일 보내는 사람: __________________ (서명)", "5": "사례 5. 배송 지연 후 환불을 거부한 티셔츠 판매업체\n제목: 소비자 피해에 따른 환불 요구\n\n받는 사람: 인터넷 쇼핑몰 판매업체\n\n주소: ______________________________________________\n\n보내는 사람: __________________________________________\n\n주소 / 전화: ___________________________________________\n\n\n1. 거래 내용\n\n본인은 귀 업체의 인터넷 쇼핑몰에서 최근 유행하는 티셔츠를 주문하였습니다.\n\n2. 문제 발생 내용\n\n상품을 주문한 후 8일 만에 티셔츠를 배송받았습니다. 상품을 확인한 후 색상이 마음에 들지 않아 환불을 요청하였으나,\n판매업체에서는 상품 수령 후 7일이 지났다는 이유로 환불을 거부하였습니다.\n\n3. 소비자 권리 침해 내용\n\n소비자의 정당한 환불 요구를 충분히 검토하지 않고 거부하여 소비자의 피해 보상을 받을 권리가 침해되었다고\n생각합니다.\n\n4. 요청 사항\n\n배송이 지연된 상황과 환불을 요청한 경위를 고려하여 환불 요구를 재검토해 주시기 바랍니다. 또한 정당한 환불 절차에\n따라 구입 대금을 환불해 주시기 바랍니다.\n\n\n\n위 내용에 대해 확인하신 후 성실한 답변과 조치를 요청합니다.\n\n20____년 ____월 ____일 보내는 사람: __________________ (서명)", "6": "사례 6. 과도한 포장 및 포장박스 미회수 문제\n제목: 소비자 피해에 따른 포장박스 회수 및 개선 요구\n\n받는 사람: 새벽배송 업체\n\n주소: ______________________________________________\n\n보내는 사람: __________________________________________\n\n주소 / 전화: ___________________________________________\n\n\n1. 거래 내용\n\n본인은 귀 업체를 통해 토마토소스 1개를 주문하였습니다.\n\n2. 문제 발생 내용\n\n작은 토마토소스 하나를 배송하면서 포장박스 2개를 사용하는 등 과도한 포장이 이루어졌습니다. 업체는 배송 후\n포장박스를 문 앞에 두면 회수하겠다고 안내하였으나, 안내에 따라 문 앞에 내놓은 포장박스는 며칠이 지나도 회수되지\n않았습니다.\n\n3. 소비자 권리 침해 내용\n\n불필요한 포장으로 자원이 낭비되고 폐기물이 발생하여 소비자의 안전하고 쾌적한 소비생활 환경에서 소비할 권리가\n침해되었다고 생각합니다.\n\n4. 요청 사항\n\n회수하기로 약속한 포장박스를 신속하게 회수해 주시기 바랍니다. 또한 불필요한 포장을 줄이고 약속한 회수 서비스를\n제대로 이행할 수 있도록 개선해 주시기 바랍니다.\n\n\n\n위 내용에 대해 확인하신 후 성실한 답변과 조치를 요청합니다.\n\n20____년 ____월 ____일 보내는 사람: __________________ (서명)", "7": "사례 7. 택배 배송 오류로 변질된 갈치의 피해 보상 요구\n제목: 소비자 피해에 따른 피해 보상 요구\n\n받는 사람: 청계 택배\n\n주소: ______________________________________________\n\n보내는 사람: __________________________________________\n\n주소 / 전화: ___________________________________________\n\n\n1. 거래 내용\n\n본인은 가족에게 선물하기 위해 신선한 갈치를 포장하여 귀 업체의 택배 서비스를 이용해 발송하였습니다.\n\n2. 문제 발생 내용\n\n택배사가 배송 주소를 잘못 확인하여 다른 장소로 배송하였습니다. 이로 인해 갈치가 제때 전달되지 못했고, 며칠 뒤\n물건을 찾았을 때는 상온에 오랫동안 방치되어 변질된 상태였습니다. 이에 배송 오류로 발생한 피해에 대해 배상을\n요구하였으나 업체에서 거부하였습니다.\n\n3. 소비자 권리 침해 내용\n\n택배사의 배송 오류로 인해 식품이 변질되는 피해가 발생하였음에도 정당한 배상을 받지 못하여 소비자의 피해 보상을\n받을 권리가 침해되었습니다.\n\n4. 요청 사항\n\n귀 업체의 배송 오류로 인해 발생한 갈치의 변질 피해에 대해 적절한 배상을 해주시기 바랍니다. 또한 배송 과정에서\n같은 문제가 발생하지 않도록 개선해 주시기 바랍니다.\n\n\n\n위 내용에 대해 확인하신 후 성실한 답변과 조치를 요청합니다.\n\n20____년 ____월 ____일 보내는 사람: __________________ (서명)", "8": "사례 8. 원하지 않는 고가 요금제 가입 강요 문제\n제목: 소비자 피해에 따른 요금제 변경 및 적절한 조치 요구\n\n받는 사람: 휴대전화 판매점\n\n주소: ______________________________________________\n\n보내는 사람: __________________________________________\n\n주소 / 전화: ___________________________________________\n\n\n1. 거래 내용\n\n본인은 휴대전화를 구입하기 위해 귀 업체의 판매점을 방문하였습니다. 저렴한 요금제를 사용하고 싶다고\n요청하였으나, 판매 직원은 특정 고가 요금제에 가입해야 휴대전화를 할인된 가격으로 구입할 수 있다고\n안내하였습니다.\n\n2. 문제 발생 내용\n\n다른 요금제를 선택할 수 있는지 문의하였지만 판매 직원은 다른 요금제는 선택할 수 없다고 안내하였습니다. 결국\n원하지 않는 고가 요금제에 가입하고 휴대전화를 구입하였습니다.\n\n3. 소비자 권리 침해 내용\n\n소비자가 자신의 경제적 상황과 필요에 맞는 요금제를 자유롭게 선택할 기회가 제한되어 소비자의 선택할 권리가\n침해되었습니다.\n\n4. 요청 사항\n\n소비자가 원하는 요금제를 자유롭게 선택할 수 있도록 조치해 주시기 바랍니다. 또한 원하지 않는 고가 요금제 가입\n조건에 대해 재검토하고 요금제 변경을 허용해 주시기 바랍니다.\n\n\n\n위 내용에 대해 확인하신 후 성실한 답변과 조치를 요청합니다.\n\n20____년 ____월 ____일 보내는 사람: __________________ (서명)", "9": "사례 9. 운동화 묶음 판매로 인한 선택권 침해 문제\n제목: 소비자 피해에 따른 단품 구매 및 적절한 조치 요구\n\n받는 사람: 청계 마켓 쇼핑몰\n\n주소: ______________________________________________\n\n보내는 사람: __________________________________________\n\n주소 / 전화: ___________________________________________\n\n\n1. 거래 내용\n\n본인은 귀 업체의 쇼핑몰에서 검은색 운동화를 발견하고 구매하려고 하였습니다. 해당 검은색 운동화는 재고가 충분히\n있는 상태였습니다.\n\n2. 문제 발생 내용\n\n판매업체에서는 검은색 운동화만 단독으로 구매할 수 없으며 흰색 운동화와 함께 세트로 구매해야 한다고\n안내하였습니다. 검은색 운동화만 구매하고 싶다고 요청하였으나 업체에서 거부하여 원하지 않는 흰색 운동화까지\n함께 구매해야 했습니다.\n\n3. 소비자 권리 침해 내용\n\n소비자가 원하는 상품만 자유롭게 선택하여 구매할 기회가 제한되어 소비자의 선택할 권리가 침해되었습니다.\n\n4. 요청 사항\n\n검은색 운동화만 단독으로 구매할 수 있도록 조치해 주시기 바랍니다. 이미 세트로 구매한 경우 원하지 않는 흰색\n운동화에 대한 구매 취소 및 환불을 요청합니다.\n\n\n\n위 내용에 대해 확인하신 후 성실한 답변과 조치를 요청합니다.\n\n20____년 ____월 ____일 보내는 사람: __________________ (서명)"};
+
     function renderAnswerCase() {
       if (el('answer-guide').hidden) return;
       const item = cases.find(entry => String(entry.id) === el('answer-case').value);
       if (!item) return;
       el('answer-case-title').textContent = item.id + '. ' + item.name;
       el('answer-case-story').textContent = item.case;
+      el('notice-example').open = false;
+      el('notice-example-text').textContent = noticeExamples[item.id];
       const questions = el('answer-questions');
       questions.replaceChildren();
       for (const question of item.questions) {
@@ -1016,6 +1040,8 @@
         el('answer-login-form').reset();
         el('answer-questions').replaceChildren();
         el('answer-case-story').textContent = '';
+        el('notice-example-text').textContent = '';
+        el('notice-example').open = false;
         el('answer-case-title').textContent = '';
         show('home');
         el('show-answer-login').focus();
@@ -1252,9 +1278,52 @@
       el('storage-status').hidden = storageAvailable;
       el('storage-status').textContent = storageAvailable ? '' :
         '브라우저에 기록을 저장할 수 없어 현재 열린 화면에서만 순위를 볼 수 있습니다.';
+      show('results');
+      el('result-title').focus();
+      clearInterval(rankingTimer);
+      const view = ++rankingView;
+      el('online-names').replaceChildren();
+      if (!progressEndpoint) {
+        el('online-summary').textContent = '전체 순위와 접속자를 보려면 현황판 연결이 필요합니다.';
+        el('ranking-scope').textContent = '이 기기의 탈출 기록';
+        renderRanking(records);
+        return;
+      }
+      el('online-summary').textContent = '전체 접속자와 순위를 불러오는 중…';
+      el('ranking-scope').textContent = '전체 순위 · 최근 3시간 탈출 기록';
+      el('records').replaceChildren();
+      refreshRanking(view);
+      rankingTimer = setInterval(() => refreshRanking(view), 5000);
+    }
+
+    async function refreshRanking(view) {
+      try {
+        const url = new URL(progressEndpoint);
+        url.searchParams.set('view', 'ranking');
+        const response = await fetch(url, { cache: 'no-store' });
+        if (!response.ok) throw new Error('ranking unavailable');
+        const data = await response.json();
+        if (!Array.isArray(data.players) || !Array.isArray(data.ranking)) throw new Error('invalid ranking');
+        if (view !== rankingView || el('results').hidden) return;
+        el('online-summary').textContent = '현재 접속 ' + data.players.length + '명';
+        const names = data.players.map(name => {
+          const item = document.createElement('li');
+          item.textContent = name;
+          return item;
+        });
+        el('online-names').replaceChildren(...names);
+        renderRanking(data.ranking);
+      } catch {
+        if (view === rankingView && !el('results').hidden) {
+          el('online-summary').textContent = '전체 기록을 불러오지 못했습니다. 현황판 배포 주소를 확인해 주세요.';
+        }
+      }
+    }
+
+    function renderRanking(source) {
       const rows = el('records');
       rows.replaceChildren();
-      const ranked = [...records].sort((a, b) => b.correct - a.correct || a.elapsed - b.elapsed || a.order - b.order);
+      const ranked = [...source].sort((a, b) => b.correct - a.correct || a.elapsed - b.elapsed || a.order - b.order);
       ranked.forEach((record, index) => {
         const row = rows.insertRow();
         for (const value of [index + 1, record.player, accuracy(record.correct), timeLabel(record.elapsed), record.order]) {
@@ -1266,8 +1335,6 @@
         cell.colSpan = 5;
         cell.textContent = '아직 탈출 기록이 없습니다.';
       }
-      show('results');
-      el('result-title').focus();
     }
 
     el('entry').addEventListener('submit', event => {
@@ -1294,6 +1361,14 @@
       renderedStops = 0;
       showMap();
       ticker = setInterval(tick, 200);
+      if (progressEndpoint) {
+        clearInterval(presenceTimer);
+        presenceTimer = setInterval(() => {
+          if (document.hidden || !game?.lastProgress) return;
+          const { status, question } = game.lastProgress;
+          reportProgress(status, question);
+        }, 25000);
+      }
     });
 
     function showMap() {
@@ -1443,6 +1518,9 @@
     el('back').addEventListener('click', () => {
       if (el('results').hidden) return;
       stopMusic();
+      clearInterval(rankingTimer);
+      clearInterval(presenceTimer);
+      rankingView++;
       show('home');
       el('entry').reset();
       el('player').focus();
