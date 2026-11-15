@@ -317,6 +317,34 @@
     #notice-example { margin-top: 18px; padding: 12px; background: white; border: 1px solid #dfcaee; border-radius: 10px; }
     #notice-example summary { cursor: pointer; font-weight: 800; color: #4e2379; }
     #notice-example-text { margin-top: 12px; line-height: 1.65; white-space: pre-line; overflow-wrap: anywhere; }
+    @media (min-width: 600px) {
+      body { padding: clamp(16px, 3vw, 36px); }
+      main { min-width: 0; width: min(100%, 980px); padding: 76px clamp(20px, 4vw, 44px) 32px; }
+      #case, .answer-sheet, #notice-example-text { font-size: 1.125rem; line-height: 1.75; }
+      #choices button { min-height: 56px; font-size: 1.05rem; line-height: 1.5; }
+      #keys button { width: min(100%, 210px); min-height: 56px; padding: 8px; font-size: 1rem; }
+      #exits button { width: min(100%, 150px); min-height: 48px; font-size: .95rem; }
+      #hint-button, #sound, #answer-case { min-height: 48px; }
+      #answer-case { font-size: 1.05rem; }
+      .table-wrap { max-width: 100%; }
+      #entry-qr { width: min(92vw, 560px); }
+      #qr-image { width: min(100%, 360px); }
+    }
+    @media (min-width: 760px) and (orientation: landscape) {
+      #game:not([hidden]) {
+        display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.05fr);
+        column-gap: 24px; align-items: start;
+      }
+      #game #progress, #game #locks, #game > p:has(#timer), #game #case-title { grid-column: 1 / -1; }
+      #game #locks { justify-self: center; }
+      #game .scene { grid-area: 5 / 1; }
+      #game #case { grid-area: 6 / 1; margin-top: 0; }
+      #game .guide { grid-area: 7 / 1; }
+      #game #question { grid-area: 5 / 2; text-align: left; margin: 12px 0; }
+      #game #choices { grid-area: 6 / 2 / 8; }
+      #game #feedback, #game #unlock, #game #next { grid-column: 1 / -1; }
+      #game #next { justify-self: center; }
+    }
   </style>
 </head>
 <body>
